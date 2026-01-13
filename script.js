@@ -1,3 +1,8 @@
+// =====================================================
+// MAGIC DESIGN EFECTO - Landing Page Script
+// Gestión de Redes Sociales B2B
+// =====================================================
+
 const packageData = {
     Esencial: {
         platforms: {
@@ -66,6 +71,32 @@ function onPlayerStateChange(event) {
 document.addEventListener('DOMContentLoaded', () => {
     // Create audio element for button click sound
     const clickSound = new Audio('https://raw.githubusercontent.com/magicdesignefecto/Gestion-de-Redes-Sociales/main/myinstants.mp3');
+
+    // Mobile menu - Always visible on mobile (bottom navigation bar)
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu) {
+        // Remove hidden class on mobile to show the bottom nav bar
+        mobileMenu.classList.remove('hidden');
+    }
+
+    // Smooth scroll for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                const headerOffset = 80;
+                const elementPosition = targetElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
 
     function updateCardContent(card) {
         const planName = card.dataset.plan;
@@ -171,5 +202,171 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (videoOverlay) {
         videoOverlay.addEventListener('click', togglePlay);
+    }
+
+    // =====================================================
+    // ANALYTICS EVENTS - Track conversions
+    // =====================================================
+
+    // Track CTA clicks
+    document.querySelectorAll('.btn-primary, .plan-cta').forEach(btn => {
+        btn.addEventListener('click', function () {
+            if (typeof gtag === 'function') {
+                gtag('event', 'cta_click', {
+                    'event_category': 'engagement',
+                    'event_label': this.textContent.trim()
+                });
+            }
+        });
+    });
+
+    // Track scroll depth
+    let scrollDepths = [25, 50, 75, 100];
+    let trackedDepths = [];
+
+    window.addEventListener('scroll', function () {
+        const scrollPercent = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
+
+        scrollDepths.forEach(depth => {
+            if (scrollPercent >= depth && !trackedDepths.includes(depth)) {
+                trackedDepths.push(depth);
+                if (typeof gtag === 'function') {
+                    gtag('event', 'scroll_depth', {
+                        'event_category': 'engagement',
+                        'event_label': `${depth}%`
+                    });
+                }
+            }
+        });
+    });
+
+    // =====================================================
+    // EXIT INTENT MODAL - Footer Trigger
+    // =====================================================
+    const exitModal = document.getElementById('exit-modal');
+    const exitModalClose = document.getElementById('exit-modal-close');
+    const exitModalDismiss = document.getElementById('exit-modal-dismiss');
+    const exitModalCta = document.getElementById('exit-modal-cta');
+    const footer = document.querySelector('footer');
+
+    let exitModalShown = false;
+    let footerObserverTriggered = false;
+
+    // Check if modal was dismissed in this session
+    const exitModalDismissed = sessionStorage.getItem('exitModalDismissed');
+
+    // Notification sound
+    const notificationSound = new Audio('https://voicebot.su/uploads/sounds/17/16117/16117.mp3');
+    notificationSound.volume = 0.5;
+
+    // Get modal content element
+    const exitModalContent = document.getElementById('exit-modal-content');
+    const exitModalBackdrop = document.getElementById('exit-modal-backdrop');
+
+    // Show exit modal function
+    function showExitModal() {
+        if (exitModalShown || exitModalDismissed) return;
+
+        exitModalShown = true;
+
+        // Play notification sound
+        notificationSound.play().catch(e => console.log('Audio play prevented:', e));
+
+        // Show modal container and add flex
+        exitModal.classList.remove('hidden');
+        exitModal.classList.add('flex');
+
+        // Trigger animation after a small delay
+        setTimeout(() => {
+            if (exitModalBackdrop) {
+                exitModalBackdrop.classList.remove('opacity-0');
+                exitModalBackdrop.classList.add('opacity-100');
+            }
+            if (exitModalContent) {
+                exitModalContent.classList.remove('scale-95', 'opacity-0');
+                exitModalContent.classList.add('scale-100', 'opacity-100');
+            }
+        }, 50);
+
+        // Track event
+        if (typeof gtag === 'function') {
+            gtag('event', 'exit_modal_shown', {
+                'event_category': 'engagement',
+                'event_label': 'footer_trigger'
+            });
+        }
+    }
+
+    // Hide exit modal function
+    function hideExitModal() {
+        if (exitModalBackdrop) {
+            exitModalBackdrop.classList.remove('opacity-100');
+            exitModalBackdrop.classList.add('opacity-0');
+        }
+        if (exitModalContent) {
+            exitModalContent.classList.remove('scale-100', 'opacity-100');
+            exitModalContent.classList.add('scale-95', 'opacity-0');
+        }
+
+        // Hide container after animation
+        setTimeout(() => {
+            exitModal.classList.add('hidden');
+            exitModal.classList.remove('flex');
+        }, 300);
+
+        sessionStorage.setItem('exitModalDismissed', 'true');
+    }
+
+    // Intersection Observer for footer
+    if (footer && exitModal) {
+        const footerObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !footerObserverTriggered && !exitModalDismissed) {
+                    footerObserverTriggered = true;
+                    // Wait 5 seconds after reaching footer
+                    setTimeout(() => {
+                        showExitModal();
+                    }, 5000);
+                }
+            });
+        }, {
+            threshold: 0.3
+        });
+
+        footerObserver.observe(footer);
+    }
+
+    // Close modal events
+    if (exitModalClose) {
+        exitModalClose.addEventListener('click', hideExitModal);
+    }
+
+    if (exitModalDismiss) {
+        exitModalDismiss.addEventListener('click', hideExitModal);
+    }
+
+    // Close on backdrop click
+    if (exitModalBackdrop) {
+        exitModalBackdrop.addEventListener('click', hideExitModal);
+    }
+
+    // CTA click - open contact modal and hide exit modal
+    if (exitModalCta) {
+        exitModalCta.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideExitModal();
+            // Open contact modal
+            const contactModal = document.getElementById('contact-modal');
+            if (contactModal) {
+                contactModal.classList.remove('hidden');
+            }
+            // Track conversion
+            if (typeof gtag === 'function') {
+                gtag('event', 'exit_modal_conversion', {
+                    'event_category': 'conversion',
+                    'event_label': 'diagnostico_gratuito'
+                });
+            }
+        });
     }
 });
